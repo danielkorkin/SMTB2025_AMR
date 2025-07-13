@@ -20,25 +20,29 @@ def read_tsv_columns(file_path):
 
 
 def read_tsv_data(file_path, target_columns):
-    """Read data from a TSV file for specific columns."""
+    """Read data from a TSV file for columns that match the target columns."""
     try:
         with open(file_path, "r", newline="", encoding="utf-8") as file:
             reader = csv.DictReader(file, delimiter="\t")
 
-            # Check if all target columns exist in the source file
-            missing_columns = [col for col in target_columns if col not in reader.fieldnames]
-            if missing_columns:
-                print(f"Error: Columns {missing_columns} not found in '{file_path}'")
-                print(f"Available columns: {reader.fieldnames}")
-                sys.exit(1)
+            # Find which target columns exist in the data file
+            available_columns = reader.fieldnames
+            matching_columns = [col for col in target_columns if col in available_columns]
+            missing_columns = [col for col in target_columns if col not in available_columns]
 
-            # Extract data for target columns
+            print(f"Found {len(matching_columns)} matching columns out of {len(target_columns)} target columns")
+            if missing_columns:
+                print(f"Missing columns: {missing_columns}")
+            if matching_columns:
+                print(f"Matching columns: {matching_columns}")
+
+            # Extract data for matching columns only
             data = []
             for row in reader:
-                extracted_row = {col: row[col] for col in target_columns}
+                extracted_row = {col: row[col] for col in matching_columns}
                 data.append(extracted_row)
 
-            return data
+            return data, matching_columns
     except FileNotFoundError:
         print(f"Error: File '{file_path}' not found.")
         sys.exit(1)
@@ -94,9 +98,13 @@ def main():
     target_columns = read_tsv_columns(columns_file)
     print(f"Target columns ({len(target_columns)}): {target_columns[:5]}{'...' if len(target_columns) > 5 else ''}")
 
-    # Step 2: Extract data for those columns from the second file
-    extracted_data = read_tsv_data(data_file, target_columns)
-    print(f"Extracted {len(extracted_data)} rows of data")
+    # Step 2: Extract data for matching columns from the second file
+    extracted_data, matching_columns = read_tsv_data(data_file, target_columns)
+    print(f"Extracted {len(extracted_data)} rows of data for {len(matching_columns)} columns")
+
+    if not matching_columns:
+        print("Error: No matching columns found between the two files!")
+        sys.exit(1)
 
     # Step 3: Create output directory if it doesn't exist
     output_dir = os.path.dirname(output_file)
@@ -104,7 +112,7 @@ def main():
         os.makedirs(output_dir)
 
     # Step 4: Write the new TSV file
-    write_tsv_data(output_file, target_columns, extracted_data)
+    write_tsv_data(output_file, matching_columns, extracted_data)
 
 
 if __name__ == "__main__":
