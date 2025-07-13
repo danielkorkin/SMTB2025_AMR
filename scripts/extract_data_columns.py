@@ -23,18 +23,24 @@ def read_tsv_data(file_path, target_columns):
     """Read data from a TSV file for columns that match the target columns."""
     try:
         with open(file_path, "r", newline="", encoding="utf-8") as file:
-            reader = csv.DictReader(file, delimiter="\t")
-
-            # Find which target columns exist in the data file
+            reader = csv.DictReader(file, delimiter="\t")  # Find which target columns exist in the data file
             available_columns = reader.fieldnames
             matching_columns = [col for col in target_columns if col in available_columns]
             missing_columns = [col for col in target_columns if col not in available_columns]
 
-            print(f"Found {len(matching_columns)} matching columns out of {len(target_columns)} target columns")
+            # Always include Strain column if it exists in the data file
+            strain_column = "Strain"
+            if strain_column in available_columns and strain_column not in matching_columns:
+                matching_columns.insert(0, strain_column)  # Add Strain as first column
+                print(f"Added '{strain_column}' column from data file")
+
+            print(
+                f"Found {len(matching_columns)} total columns ({len([col for col in matching_columns if col in target_columns])} matching + {'1' if strain_column in matching_columns and strain_column not in target_columns else '0'} strain)"
+            )
             if missing_columns:
                 print(f"Missing columns: {missing_columns}")
             if matching_columns:
-                print(f"Matching columns: {matching_columns}")
+                print(f"Final columns: {matching_columns}")
 
             # Extract data for matching columns only
             data = []
