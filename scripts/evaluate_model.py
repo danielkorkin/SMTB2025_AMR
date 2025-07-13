@@ -213,6 +213,21 @@ def plot_model_comparison(df: pd.DataFrame, output_dir: Path):
     plt.savefig(output_dir / "species_model_heatmap.png", dpi=300, bbox_inches="tight")
     plt.close()
 
+    # 2b. Heatmap of best (maximum) performance by species
+    plt.figure(figsize=(14, 8))
+    species_model_best = df.groupby(["Species", "Model"])["Test_MCC"].max().unstack()
+    sns.heatmap(species_model_best, annot=True, fmt=".3f", cmap="RdYlBu_r", center=0)
+    plt.title("Best Test MCC by Species and Model")
+    plt.xlabel("Model Type")
+    plt.ylabel("Species")
+    plt.xticks(rotation=45)
+    plt.yticks(rotation=0)
+    plt.tight_layout()
+    plt.savefig(output_dir / "species_model_best_heatmap.png", dpi=300, bbox_inches="tight")
+    plt.close()
+
+    return species_model_best  # Return the best performance matrix for saving
+
     # 3. Performance by version
     plt.figure(figsize=(12, 6))
     sns.boxplot(data=df, x="Version", y="Test_MCC", hue="Model")
@@ -239,7 +254,9 @@ def plot_model_comparison(df: pd.DataFrame, output_dir: Path):
     plt.close()
 
 
-def save_results(df: pd.DataFrame, pivot: pd.DataFrame, stats: pd.DataFrame, output_dir: Path):
+def save_results(
+    df: pd.DataFrame, pivot: pd.DataFrame, stats: pd.DataFrame, best_performance: pd.DataFrame, output_dir: Path
+):
     """
     Save results to CSV files.
 
@@ -247,6 +264,7 @@ def save_results(df: pd.DataFrame, pivot: pd.DataFrame, stats: pd.DataFrame, out
         df: Summary DataFrame
         pivot: Pivot table
         stats: Statistics DataFrame
+        best_performance: Best performance matrix by species and model
         output_dir: Directory to save files
     """
     # Save detailed results
@@ -257,6 +275,11 @@ def save_results(df: pd.DataFrame, pivot: pd.DataFrame, stats: pd.DataFrame, out
 
     # Save statistics
     stats.to_csv(output_dir / "model_statistics.csv")
+
+    # Save best performance matrix
+    best_performance.to_csv(output_dir / "best_performance_by_species_model.csv")
+    # Also save as TSV for convenience
+    best_performance.to_csv(output_dir / "best_performance_by_species_model.tsv", sep="\t")
 
     # Save best performers
     best_overall = df.loc[df["Test_MCC"].idxmax()]
@@ -349,8 +372,11 @@ def main():
     print("=" * 60)
     print(stats)
 
+    # Generate best performance matrix
+    best_performance = df.groupby(["Species", "Model"])["Test_MCC"].max().unstack()
+
     # Save results
-    save_results(df, pivot, stats, output_dir)
+    save_results(df, pivot, stats, best_performance, output_dir)
 
     # Generate plots if requested
     if not args.no_plots:
@@ -363,6 +389,7 @@ def main():
     print("- detailed_results.csv: All MCC scores with metadata")
     print("- pivot_table.csv: Matrix view of results")
     print("- model_statistics.csv: Summary statistics by model")
+    print("- best_performance_by_species_model.csv/.tsv: Best MCC by species and model")
     print("- best_performers.txt: Best performing configurations")
     if not args.no_plots:
         print("- *.png: Various visualization plots")
