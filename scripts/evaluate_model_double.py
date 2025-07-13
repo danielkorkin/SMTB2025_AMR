@@ -375,12 +375,93 @@ def analyze_missing_data(results: Dict[str, Dict[str, float]]) -> None:
             print(f"  {bacteria}: {count}/{len(SPECIES)} missing ({count / len(SPECIES) * 100:.1f}%)")
 
 
+def debug_missing_directories(results_dir: Path, missing_bacteria: str = "Pseudomonas_aeruginosa") -> None:
+    """
+    Debug function to investigate what's inside directories that are missing metrics.csv files.
+    
+    Args:
+        results_dir: Path to the results directory
+        missing_bacteria: The bacteria to investigate (default: Pseudomonas_aeruginosa)
+    """
+    print("\n" + "="*50)
+    print(f"DEBUGGING MISSING METRICS FOR: {missing_bacteria}")
+    print("="*50)
+    
+    # Check a few examples of directories that should have this bacteria as test organism
+    example_trains = ["Acinetobacter_baumannii", "Campylobacter_jejuni", "Escherichia_coli"]
+    
+    for train_bacteria in example_trains:
+        folder_name = f"{train_bacteria}_{missing_bacteria}"
+        model_dir = results_dir / folder_name
+        
+        print(f"\nChecking: {folder_name}")
+        
+        if not model_dir.exists():
+            print(f"  ❌ Directory doesn't exist: {model_dir}")
+            continue
+        
+        print(f"  ✅ Directory exists: {model_dir}")
+        
+        # List contents of the main directory
+        try:
+            contents = list(model_dir.iterdir())
+            print(f"  📁 Contents ({len(contents)} items):")
+            for item in sorted(contents):
+                if item.is_dir():
+                    print(f"    📂 {item.name}/")
+                else:
+                    print(f"    📄 {item.name}")
+        except Exception as e:
+            print(f"  ❌ Error listing directory: {e}")
+            continue
+        
+        # Check for version_0 directory
+        version_dir = model_dir / "version_0"
+        if not version_dir.exists():
+            print("  ❌ version_0 directory missing!")
+            continue
+
+        print("  ✅ version_0 directory exists")
+        
+        # List contents of version_0 directory
+        try:
+            version_contents = list(version_dir.iterdir())
+            print(f"  📁 version_0 contents ({len(version_contents)} items):")
+            for item in sorted(version_contents):
+                if item.is_dir():
+                    print(f"    📂 {item.name}/")
+                else:
+                    print(f"    📄 {item.name}")
+        except Exception as e:
+            print(f"  ❌ Error listing version_0 directory: {e}")
+            continue
+        
+        # Check specifically for metrics.csv
+        metrics_file = version_dir / "metrics.csv"
+        if metrics_file.exists():
+            print("  ✅ metrics.csv exists!")
+            # Try to read the first few lines
+            try:
+                with open(metrics_file, 'r') as f:
+                    lines = f.readlines()[:5]  # First 5 lines
+                print("  📄 First few lines of metrics.csv:")
+                for i, line in enumerate(lines):
+                    print(f"    {i+1}: {line.strip()}")
+            except Exception as e:
+                print(f"  ❌ Error reading metrics.csv: {e}")
+        else:
+            print("  ❌ metrics.csv missing!")
+
+
 def main():
     """Main function to run the evaluation."""
     parser = argparse.ArgumentParser(description="Evaluate double bacteria AMR prediction models and create heatmap")
     parser.add_argument("results_dir", type=str, help="Path to the directory containing the bacterial pair results")
     parser.add_argument(
         "--output_dir", type=str, default=None, help="Directory to save output files (default: same as results_dir)"
+    )
+    parser.add_argument(
+        "--debug", action="store_true", help="Enable debug mode to investigate missing files"
     )
 
     args = parser.parse_args()
@@ -405,14 +486,15 @@ def main():
     # Analyze missing data patterns
     analyze_missing_data(results)
 
+    # Debug missing files if requested
+    if args.debug:
+        debug_missing_directories(results_dir, "Pseudomonas_aeruginosa")
+
     # Create heatmap dataframe
     heatmap_data = create_heatmap_dataframe(results)
 
     # Print summary statistics
     print_summary_statistics(heatmap_data)
-
-    # Analyze missing data patterns
-    analyze_missing_data(results)
 
     # Create and save heatmap
     create_heatmap(heatmap_data, output_dir)
